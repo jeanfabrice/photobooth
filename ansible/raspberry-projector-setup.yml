@@ -10,5 +10,5 @@
 
 - name: configure wlan0
   copy:
-    src: files/{{ansible_hostname}}/wlan0
+    src: files/projector/wlan0
     dest: /etc/network/interfaces.d/wlan0

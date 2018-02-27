@@ -23,7 +23,6 @@
         - libjpeg-progs
         - build-essential
         - firmware-zd1211
-        - wpasupplicant
     - name: create feh unarchive directory
       file:
         path: /tmp/{{feh_version}}
@@ -119,7 +118,7 @@
         name: autologin@tty1.service
     - name: copy bash_profile
       copy:
-        src: files/projector/bash_profile
+        src: files/{{inventory_hostname}}/bash_profile
         dest: /root/.bash_profile
         owner: root
         group: root
