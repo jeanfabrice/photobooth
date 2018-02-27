@@ -1,0 +1,2 @@
+projector ansible_host=192.168.4.137 ansible_user='pi' ansible_ssh_pass=raspberry
+photobooth ansible_host=192.168.4.137 ansible_user='pi' ansible_ssh_pass=raspberry

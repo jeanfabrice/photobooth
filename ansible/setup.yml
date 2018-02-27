@@ -1,0 +1,108 @@
+- hosts: projector
+  become: true
+  vars:
+    feh_version: feh-2.24
+    feh_source: http://feh.finalrewind.org/{{feh_version}}.tar.bz2
+    feh_config:
+      reload: 5
+      delay: 5
+      path: /root/slideshow
+  tasks:
+    - name: install packages
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - openssh-server
+        - inotify-tools
+        - xorg
+        - libcurl4-openssl-dev
+        - libx11-dev
+        - libxt-dev
+        - libimlib2-dev
+        - libxinerama-dev
+        - libjpeg-progs
+        - build-essential
+    - name: create feh unarchive directory
+      file:
+        path: /tmp/{{feh_version}}
+        state: directory
+    - name: download feh
+      unarchive:
+        src: "{{feh_source}}"
+        dest: /tmp/{{feh_version}}
+        remote_src: yes
+        extra_opts:
+          - "--strip-components=1"
+        creates: /tmp/{{feh_version}}/Makefile
+    - name: install feh
+      shell: make && make install
+      args:
+        chdir: /tmp/{{feh_version}}
+        creates: /usr/local/bin/feh
+    - name: create slideshow directory
+      file:
+        path: /root/slideshow
+        state: directory
+    - name: deploy root xinitrc
+      template:
+        src: templates/xinitrc.j2
+        dest: /root/.xinitrc
+        owner: root
+        group: root
+        mode: 0644
+    - name: deploy autologin unit
+      copy:
+        src: /lib/systemd/system/getty@.service
+        dest: /etc/systemd/system/autologin@.service
+        remote_src: yes
+    - name: update autologin unit
+      lineinfile:
+        dest: /etc/systemd/system/autologin@.service
+        line: ExecStart=-/sbin/agetty -a root %I $TERM
+        regexp: ^ExecStart=-/sbin/agetty
+    - name: Disable tty1 unit
+      systemd:
+        daemon_reload: yes
+        enabled: no
+        name: getty@tty1.service
+    - name: Enable autologin unit
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: restarted
+        name: autologin@tty1.service
+    - name: copy bash_profile
+      copy:
+        src: files/bash_profile
+        dest: /root/.bash_profile
+        owner: root
+        group: root
+        mode : 0644
+
+- hosts: photobooth
+  become: true
+  tasks:
+    - name: install packages
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - openssh-server
+        - imagemagick
+        - python-dev
+        - build-essential
+        - python-pkgconfig
+        - python-setuptools
+        - hostapd
+        - virtualenv
+    - name: install pip packages
+      pip:
+        name: "{{item}}"
+        virtualenv: /root/.venv_photobooth
+      with_items:
+        - RPi.GPIO
+        - gphoto2
+
