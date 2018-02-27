@@ -1,0 +1,14 @@
+---
+- name: configure keyboard
+  command: raspi-config nonint do_configure_keyboard fr
+
+- name: configure wifi country
+  command: raspi-config nonint do_wifi_country FR
+
+- name: configure wifi ssid
+  command: raspi-config nonint do_wifi_ssid_passphrase {{wifi_ssid}} {{wifi_passphrase}}
+
+- name: configure wlan0
+  copy:
+    src: files/{{ansible_hostname}}/wlan0
+    dest: /etc/network/interfaces.d/wlan0

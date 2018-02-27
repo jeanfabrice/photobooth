@@ -1,5 +1,4 @@
 - hosts: projector
-  become: true
   vars:
     feh_version: feh-2.24
     feh_source: http://feh.finalrewind.org/{{feh_version}}.tar.bz2
@@ -14,7 +13,6 @@
         state: latest
         update_cache: yes
       with_items:
-        - openssh-server
         - inotify-tools
         - xorg
         - libcurl4-openssl-dev
@@ -24,6 +22,8 @@
         - libxinerama-dev
         - libjpeg-progs
         - build-essential
+        - firmware-zd1211
+        - wpasupplicant
     - name: create feh unarchive directory
       file:
         path: /tmp/{{feh_version}}
@@ -43,15 +43,59 @@
         creates: /usr/local/bin/feh
     - name: create slideshow directory
       file:
-        path: /root/slideshow
+        path: "{{feh_config.path}}"
         state: directory
+    - name: copy default slideshow image
+      copy:
+        src: files/projector/default.jpg
+        dest: "{{feh_config.path}}"
     - name: deploy root xinitrc
       template:
-        src: templates/xinitrc.j2
+        src: templates/projector/xinitrc.j2
         dest: /root/.xinitrc
         owner: root
         group: root
         mode: 0644
+
+- hosts: photobooth
+  tasks:
+    - name: install packages
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - imagemagick
+        - python-dev
+        - build-essential
+        - python-pkgconfig
+        - python-setuptools
+        - hostapd
+        - virtualenv
+    - name: install pip packages
+      pip:
+        name: "{{item}}"
+        virtualenv: /root/.venv_photobooth
+      with_items:
+        - RPi.GPIO
+        - gphoto2
+
+
+- hosts: all
+  vars:
+    wifi_ssid: ssid
+    wifi_passphrase: changeme
+  tasks:
+    - name: set hostname
+      hostname:
+        name: "{{inventory_hostname}}"
+    - name: update /etc/hosts
+      lineinfile:
+        dest: /etc/hosts
+        line: "{{item}}"
+      with_items:
+        - 10.200.0.1 projector
+        - 10.200.0.2 photobooth
     - name: deploy autologin unit
       copy:
         src: /lib/systemd/system/getty@.service
@@ -75,34 +119,15 @@
         name: autologin@tty1.service
     - name: copy bash_profile
       copy:
-        src: files/bash_profile
+        src: files/projector/bash_profile
         dest: /root/.bash_profile
         owner: root
         group: root
         mode : 0644
-
-- hosts: photobooth
-  become: true
-  tasks:
-    - name: install packages
-      apt:
-        name: "{{item}}"
-        state: latest
-        update_cache: yes
-      with_items:
-        - openssh-server
-        - imagemagick
-        - python-dev
-        - build-essential
-        - python-pkgconfig
-        - python-setuptools
-        - hostapd
-        - virtualenv
-    - name: install pip packages
-      pip:
-        name: "{{item}}"
-        virtualenv: /root/.venv_photobooth
-      with_items:
-        - RPi.GPIO
-        - gphoto2
-
+    - name: is raspberry
+      stat:
+        path: /boot/cmdline.txt
+      register: israspeberry
+    - name: setup raspberry for {{inventory_hostname}}
+      include_tasks: raspberry-{{inventory_hostname}}-setup.yml
+      when: israspeberry.stat.exists
