@@ -23,10 +23,13 @@
         - libjpeg-progs
         - build-essential
         - firmware-zd1211
+        - rsync
+
     - name: create feh unarchive directory
       file:
         path: /tmp/{{feh_version}}
         state: directory
+
     - name: download feh
       unarchive:
         src: "{{feh_source}}"
@@ -35,19 +38,23 @@
         extra_opts:
           - "--strip-components=1"
         creates: /tmp/{{feh_version}}/Makefile
+
     - name: install feh
       shell: make && make install
       args:
         chdir: /tmp/{{feh_version}}
         creates: /usr/local/bin/feh
+
     - name: create slideshow directory
       file:
         path: "{{feh_config.path}}"
         state: directory
+
     - name: copy default slideshow image
       copy:
         src: files/projector/default.jpg
         dest: "{{feh_config.path}}"
+
     - name: deploy root xinitrc
       template:
         src: templates/projector/xinitrc.j2
@@ -69,8 +76,9 @@
         - build-essential
         - python-pkgconfig
         - python-setuptools
-        - hostapd
         - virtualenv
+        - rsync
+    
     - name: install pip packages
       pip:
         name: "{{item}}"
@@ -78,7 +86,6 @@
       with_items:
         - RPi.GPIO
         - gphoto2
-
 
 - hosts: all
   vars:
@@ -88,6 +95,7 @@
     - name: set hostname
       hostname:
         name: "{{inventory_hostname}}"
+    
     - name: update /etc/hosts
       lineinfile:
         dest: /etc/hosts
@@ -95,27 +103,32 @@
       with_items:
         - 10.200.0.1 projector
         - 10.200.0.2 photobooth
+    
     - name: deploy autologin unit
       copy:
         src: /lib/systemd/system/getty@.service
         dest: /etc/systemd/system/autologin@.service
         remote_src: yes
+    
     - name: update autologin unit
       lineinfile:
         dest: /etc/systemd/system/autologin@.service
         line: ExecStart=-/sbin/agetty -a root %I $TERM
         regexp: ^ExecStart=-/sbin/agetty
+    
     - name: Disable tty1 unit
       systemd:
         daemon_reload: yes
         enabled: no
         name: getty@tty1.service
-    - name: Enable autologin unit
+    
+    - name: enable autologin unit
       systemd:
         daemon_reload: yes
         enabled: yes
         state: restarted
         name: autologin@tty1.service
+    
     - name: copy bash_profile
       copy:
         src: files/{{inventory_hostname}}/bash_profile
@@ -123,10 +136,22 @@
         owner: root
         group: root
         mode : 0644
+    
     - name: is raspberry
       stat:
         path: /boot/cmdline.txt
       register: israspeberry
-    - name: setup raspberry for {{inventory_hostname}}
+    
+    - name: disable dhcpd for wlan0 interface
+      lineinfile:
+        dest: /etc/dhcpcd.conf
+        line: denyinterfaces wlan0
+      when: israspeberry.stat.exists
+    
+    - name: configure keyboard
+      command: raspi-config nonint do_configure_keyboard fr
+      when: israspeberry.stat.exists
+
+    - name: finalize raspberry installation as '{{inventory_hostname}}'
       include_tasks: raspberry-{{inventory_hostname}}-setup.yml
       when: israspeberry.stat.exists

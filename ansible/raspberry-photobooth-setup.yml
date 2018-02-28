@@ -1,0 +1,41 @@
+---
+- name: install packages
+  apt:
+    name: "{{item}}"
+    state: latest
+    update_cache: yes
+  with_items:
+    - hostapd
+
+- name: configure hostapd default
+  lineinfile:
+    dest: /etc/default/hostapd
+    line: DAEMON_CONF="/etc/hostapd/hostapd.conf"
+    regexp: ^DAEMON_CONF=
+
+- name: create hostapd configuration
+  template:
+    src: templates/photobooth/hostapd.conf.j2
+    dest: /etc/hostapd/hostapd.conf
+    owner: root
+    group: root
+    mode: 0600
+
+- name: configure wlan0
+  copy:
+    src: files/photobooth/wlan0
+    dest: /etc/network/interfaces.d/wlan0
+
+- name: create USB stick mountpoint
+  file:
+    path: /mnt/photobooth
+    state: directory
+
+- name: update fstab for USB stick
+  mount:
+    path: /mnt/photobooth
+    src: LABEL=PHOTOBOOTH
+    fstype: auto
+    passno: 2
+    opts: defaults,noatime,auto,nofail
+    state: present

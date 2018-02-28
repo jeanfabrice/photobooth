@@ -1,7 +1,4 @@
 ---
-- name: configure keyboard
-  command: raspi-config nonint do_configure_keyboard fr
-
 - name: configure wifi country
   command: raspi-config nonint do_wifi_country FR
 
