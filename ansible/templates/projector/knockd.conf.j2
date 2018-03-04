@@ -1,0 +1,5 @@
+[options]
+  UseSyslog
+[rsync]
+  sequence= 10000:udp
+  command= rsync -ar photobooth:{{photobooth_usb_mountpoint}}/ {{feh_config.path}} && pkill -SIGUSR1 feh

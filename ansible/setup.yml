@@ -1,19 +1,58 @@
 - hosts: projector
-  vars:
-    feh_version: feh-2.24
-    feh_source: http://feh.finalrewind.org/{{feh_version}}.tar.bz2
-    feh_config:
-      reload: 5
-      delay: 5
-      path: /root/slideshow
   tasks:
+    - name: add local user
+      user:
+        name: "{{projector_user.name}}"
+        home: "{{projector_user.homedir}}"
+        generate_ssh_key: yes
+        shell: /bin/bash
+      register: local_user
+
+    - name: deploy local user public key on photobooth server
+      authorized_key:
+        key: "{{local_user.ssh_public_key}}"
+        user: "{{photobooth_user.name}}"
+        comment : "Projector SSH key"
+      delegate_to: photobooth
+
+    - name: deploy autologin unit
+      copy:
+        src: /lib/systemd/system/getty@.service
+        dest: /etc/systemd/system/autologin@.service
+        remote_src: yes
+    
+    - name: update autologin unit
+      lineinfile:
+        dest: /etc/systemd/system/autologin@.service
+        line: ExecStart=-/sbin/agetty -a {{projector_user.name}} %I $TERM
+        regexp: ^ExecStart=-/sbin/agetty
+    
+    - name: disable tty1 unit
+      systemd:
+        daemon_reload: yes
+        enabled: no
+        name: getty@tty1.service
+    
+    - name: enable autologin unit
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: restarted
+        name: autologin@tty1.service
+    
+    - name: copy bash_profile
+      copy:
+        src: files/{{inventory_hostname}}/bash_profile
+        dest: "{{projector_user.homedir}}/.bash_profile"
+        owner: "{{projector_user.name}}"
+        mode : 0644
+
     - name: install packages
       apt:
         name: "{{item}}"
         state: latest
         update_cache: yes
       with_items:
-        - inotify-tools
         - xorg
         - libcurl4-openssl-dev
         - libx11-dev
@@ -22,7 +61,7 @@
         - libxinerama-dev
         - libjpeg-progs
         - build-essential
-        - firmware-zd1211
+        - knockd
         - rsync
 
     - name: create feh unarchive directory
@@ -49,61 +88,64 @@
       file:
         path: "{{feh_config.path}}"
         state: directory
+        mode: 0755
+        owner: "{{projector_user.name}}"
 
     - name: copy default slideshow image
       copy:
         src: files/projector/default.jpg
         dest: "{{feh_config.path}}"
+        owner: "{{projector_user.name}}"
 
-    - name: deploy root xinitrc
+    - name: deploy xinitrc
       template:
         src: templates/projector/xinitrc.j2
-        dest: /root/.xinitrc
-        owner: root
-        group: root
+        dest: "{{projector_user.homedir}}/.xinitrc"
+        owner: "{{projector_user.name}}"
         mode: 0644
+
+    - name: edit knockd default configuration
+      lineinfile:
+        path: /etc/default/knockd
+        regexp: "{{item.re}}"
+        line: "{{item.line}}"
+      with_items:
+        - re: ^START_KNOCKD=
+          line: START_KNOCKD=1
+        - re: ^KNOCKD_OPTS="-i
+          line: KNOCKD_OPTS="-i wlan0"
+
+    - name: deploy knockd configuration file
+      template:
+        src: templates/projector/knockd.conf.j2
+        dest: /etc/knockd.conf
+
+    - name: create knockd systemd unit
+      copy:
+        src: files/projector/knockd.service
+        dest: /etc/systemd/system/knockd.service
+
+    - name: Enable knockd at boot
+      systemd:
+        name: knockd.service
+        enabled: yes
+        daemon_reload: yes
+
+    - name: deploy root ssh_config
+      template:
+        src: templates/projector/ssh_config.j2
+        dest: /root/.ssh/config
+        mode: 0600
 
 - hosts: photobooth
   tasks:
-    - name: install packages
-      apt:
-        name: "{{item}}"
-        state: latest
-        update_cache: yes
-      with_items:
-        - imagemagick
-        - python-dev
-        - build-essential
-        - python-pkgconfig
-        - python-setuptools
-        - virtualenv
-        - rsync
-    
-    - name: install pip packages
-      pip:
-        name: "{{item}}"
-        virtualenv: /root/.venv_photobooth
-      with_items:
-        - RPi.GPIO
-        - gphoto2
+    - name: add local user
+      user:
+        name: "{{photobooth_user.name}}"
+        home: "{{photobooth_user.homedir}}"
+        shell: /bin/bash
+      register: local_user
 
-- hosts: all
-  vars:
-    wifi_ssid: ssid
-    wifi_passphrase: changeme
-  tasks:
-    - name: set hostname
-      hostname:
-        name: "{{inventory_hostname}}"
-    
-    - name: update /etc/hosts
-      lineinfile:
-        dest: /etc/hosts
-        line: "{{item}}"
-      with_items:
-        - 10.200.0.1 projector
-        - 10.200.0.2 photobooth
-    
     - name: deploy autologin unit
       copy:
         src: /lib/systemd/system/getty@.service
@@ -113,7 +155,7 @@
     - name: update autologin unit
       lineinfile:
         dest: /etc/systemd/system/autologin@.service
-        line: ExecStart=-/sbin/agetty -a root %I $TERM
+        line: ExecStart=-/sbin/agetty -a "{{photobooth_user.name}}" %I $TERM
         regexp: ^ExecStart=-/sbin/agetty
     
     - name: Disable tty1 unit
@@ -131,11 +173,71 @@
     
     - name: copy bash_profile
       copy:
-        src: files/{{inventory_hostname}}/bash_profile
-        dest: /root/.bash_profile
-        owner: root
-        group: root
+        src: files/photobooth/bash_profile
+        dest: "{{photobooth_user.homedir}}/.bash_profile"
+        owner: "{{photobooth_user.name}}"
         mode : 0644
+
+    - name: install packages
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - imagemagick
+        - python-dev
+        - build-essential
+        - python-pkgconfig
+        - python-setuptools
+        - virtualenv
+        - rsync
+    
+    - name: install pip packages
+      pip:
+        name: "{{item}}"
+        virtualenv: "{{photobooth_user.homedir}}/.venv_photobooth"
+      with_items:
+        - RPi.GPIO
+        - gphoto2
+
+    - name: create USB stick mountpoint
+      file:
+        path: "{{photobooth_usb_mountpoint}}"
+        state: directory
+        owner: "{{photobooth_user.name}}"
+        mode : 0755
+
+    - name: update fstab for USB stick
+      mount:
+        path: "{{photobooth_usb_mountpoint}}"
+        src: LABEL=PHOTOBOOTH
+        fstype: auto
+        passno: 2
+        opts: defaults,noatime,auto,nofail,uid={{local_user.uid}},gid={{local_user.group}}
+        state: present
+
+    - name: install photobooth app
+      copy:
+        src: files/photobooth/app
+        dest: "{{photobooth_user.homedir}}"
+        owner: "{{photobooth_user.name}}"
+
+- hosts: all
+  vars:
+    wifi_ssid: ssid
+    wifi_passphrase: changeme
+  tasks:
+    - name: set hostname
+      hostname:
+        name: "{{inventory_hostname}}"
+    
+    - name: update /etc/hosts
+      lineinfile:
+        dest: /etc/hosts
+        line: "{{item}}"
+      with_items:
+        - 10.200.0.1 projector
+        - 10.200.0.2 photobooth
     
     - name: is raspberry
       stat:

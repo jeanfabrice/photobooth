@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python -u
 #-*- coding: utf-8 -*-
 
 from __future__ import print_function
@@ -12,8 +12,22 @@ import uuid
 import time
 from config import render
 import config
+import signal
+from functools import partial
+import fcntl
+import socket
 
+def knock(host, knock_port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.sendto('', (host, knock_port))
+    except socket.error:
+        pass
 
+def handle_signal(camera, signum, frame):
+    print ("\nCleaning camera link and exit")
+    gp.check_result(gp.gp_camera_exit(camera))
+    sys.exit(0)
 
 def displayLed(c, f):
     print('counter: {0} - Left frame: {1}'.format(c, f))
@@ -28,14 +42,28 @@ def configurecamera(camera):
         print('setup "%s" camera property with value: %s'%(c,v))
         try:
             widget = gp.check_result(gp.gp_camera_get_single_config(camera,c))
+        except gp.GPhoto2Error:
+            print ('I/O error. Please restart camera')
+            gp.check_result(gp.gp_camera_exit(camera))
+            main()
         except:
             raise
+
         try:
             gp.check_result(gp.gp_widget_set_value(widget,v))
+        except gp.GPhoto2Error:
+            print ('I/O error. Please restart camera')
+            gp.check_result(gp.gp_camera_exit(camera))
+            main()
         except:
             raise
+
         try:
             gp.check_result(gp.gp_camera_set_single_config(camera,c,widget))
+        except gp.GPhoto2Error:
+            print ('I/O error. Please restart camera')
+            gp.check_result(gp.gp_camera_exit(camera))
+            main()
         except:
             raise
 
@@ -51,21 +79,18 @@ def captureSerie(camera,now):
         while True:
             try:
                 file_path = gp.check_result(gp.gp_camera_capture(camera, gp.GP_CAPTURE_IMAGE))
-            except KeyboardInterrupt:
-                return
             except gp.GPhoto2Error as ex:
                 if ex.code == gp.GP_ERROR_MODEL_NOT_FOUND:
                     print ('no camera, retry in 2 seconds')
                     time.sleep(2)
                     continue
                 if ex.code == gp.GP_ERROR_CAMERA_BUSY:
-                    print ('camera seems busy. Resetting and retry in 2 seconds')
-                    gp.check_result(gp.gp_camera_exit(camera))
-                    gp.check_result(gp.gp_camera_init(camera))
+                    print ('camera seems busy. retry in 2 seconds')
                     time.sleep(2)
                     continue
                 raise
             break
+        print("Photo taken")
         sequence.append(file_path)
         currentFrame += 1
     
@@ -85,7 +110,10 @@ def captureSerie(camera,now):
             gp.check_result(gp.gp_file_save(camera_file, target))
         except:
             raise
+    print("Photo saved")
     return capturedirectory
+
+
 
 def main():
     if not os.path.exists(config.montagedir):
@@ -94,6 +122,7 @@ def main():
     logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.ERROR)
 
     print('Start')
+    
     try:
         gp.check_result(gp.use_python_logging())
     except:
@@ -101,7 +130,10 @@ def main():
 
     camera = gp.check_result(gp.gp_camera_new())
 
-    # Wait endlessly for camera to connect then continue
+    signal.signal(signal.SIGTERM, partial(handle_signal,camera))
+    signal.signal(signal.SIGINT, partial(handle_signal,camera))
+    
+    # Wait for camera to connect before continue
     while True:
         try:
             gp.check_result(gp.gp_camera_init(camera))
@@ -110,6 +142,12 @@ def main():
                 print ('no camera, retry in 2 seconds')
                 time.sleep(2)
                 continue
+            if ex.code == gp.GP_ERROR_IO:
+                print ('I/O error. Restart camera, will retry in 5 seconds')
+                time.sleep(5)
+                continue
+            if ex.code == gp.GP_ERROR_BAD_PARAMETERS:
+                break
             raise
         break
 
@@ -123,27 +161,22 @@ def main():
     #Capture frame endlessly
     while True:
         try:
-            input("press button to continue")
+            time.sleep(10)
+            #input("press button to continue")
         except SyntaxError:
             pass
-        except KeyboardInterrupt:
-            break
         
         now = time.strftime("%Y%m%d_%Hh%Mm%Ss")
         
-        try:
-            capturedirectory = captureSerie(camera,now)
-        except KeyboardInterrupt:
-            break
+        capturedirectory = captureSerie(camera,now)
         
         try:
             config.render(os.path.join(capturedirectory,'*.jpg'), os.path.join(config.montagedir,'%s.jpg'%now))
         except:
             raise
+        
+        knock('projector', 10000)
 
-    print ("\nCleaning camera link and exit")
-    gp.check_result(gp.gp_camera_exit(camera))
-    return 0
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -1,0 +1,17 @@
+---
+projector_user:
+  name: projector
+  homedir: /home/projector
+
+photobooth_user:
+  name: photobooth
+  homedir: /home/photobooth
+
+photobooth_usb_mountpoint: /mnt/photobooth
+
+feh_version: feh-2.24
+feh_source: http://feh.finalrewind.org/{{feh_version}}.tar.bz2
+feh_config:
+  reload: 5
+  delay: 5
+  path: "{{projector_user.homedir}}/slideshow"

@@ -1,0 +1,15 @@
+[Unit]
+Description=Port-Knock Daemon
+After=network.target
+Documentation=man:knockd(1)
+
+[Service]
+EnvironmentFile=-/etc/default/knockd
+ExecStart=/usr/sbin/knockd $KNOCKD_OPTS
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+SuccessExitStatus=0 2 15
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

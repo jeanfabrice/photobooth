@@ -26,16 +26,3 @@
     src: files/photobooth/wlan0
     dest: /etc/network/interfaces.d/wlan0
 
-- name: create USB stick mountpoint
-  file:
-    path: /mnt/photobooth
-    state: directory
-
-- name: update fstab for USB stick
-  mount:
-    path: /mnt/photobooth
-    src: LABEL=PHOTOBOOTH
-    fstype: auto
-    passno: 2
-    opts: defaults,noatime,auto,nofail
-    state: present

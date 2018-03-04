@@ -1,0 +1,16 @@
+[Unit]
+Description=Photobooth
+BindsTo=mnt-photobooth.mount
+After=mnt-photobooth.mount
+
+[Service]
+EnvironmentFile=/etc/environment
+WorkingDirectory={{user.homedir}}/app
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=0
+SuccessExitStatus=0
+ExecStart=/usr/bin/python -u photobooth.py
+
+[Install]
+WantedBy=multi-user.target
