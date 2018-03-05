@@ -12,6 +12,6 @@ photobooth_usb_mountpoint: /mnt/photobooth
 feh_version: feh-2.24
 feh_source: http://feh.finalrewind.org/{{feh_version}}.tar.bz2
 feh_config:
-  reload: 5
+  reload: 10
   delay: 5
   path: "{{projector_user.homedir}}/slideshow"
