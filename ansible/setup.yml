@@ -195,7 +195,7 @@
     - name: install pip packages
       pip:
         name: "{{item}}"
-        virtualenv: "{{photobooth_user.homedir}}/.venv_photobooth"
+        virtualenv: "{{photobooth_virtualenv}}"
       with_items:
         - RPi.GPIO
         - gphoto2
@@ -221,6 +221,27 @@
         src: files/photobooth/app
         dest: "{{photobooth_user.homedir}}"
         owner: "{{photobooth_user.name}}"
+
+    - name: deploy photobooth systemd unit
+      template:
+        src: templates/photobooth/photobooth.service
+        dest: /etc/systemd/system/photobooth.service
+
+    - name: create usb mountpoint systemd unit directory
+      file:
+        path: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d
+        state: directory
+
+    - name: set photobooth unit wanted by usb mountpoint
+      copy:
+        src: files/photobooth/10-run-photobooth.conf
+        dest: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d/10-run-photobooth.conf
+
+    - name: enable photobooth service
+      systemd:
+        daemon_reload: yes
+        name: photobooth.service
+        enabled: yes
 
 - hosts: all
   vars:

@@ -9,6 +9,8 @@ photobooth_user:
 
 photobooth_usb_mountpoint: /mnt/photobooth
 
+photobooth_virtualenv: "{{photobooth_user.homedir}}/.venv_photobooth"
+
 feh_version: feh-2.24
 feh_source: http://feh.finalrewind.org/{{feh_version}}.tar.bz2
 feh_config:
