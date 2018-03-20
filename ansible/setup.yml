@@ -1,5 +1,22 @@
 - hosts: projector
   tasks:
+    - name: install packages
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - xorg
+        - libcurl4-openssl-dev
+        - libx11-dev
+        - libxt-dev
+        - libimlib2-dev
+        - libxinerama-dev
+        - libjpeg-progs
+        - build-essential
+        - knockd
+        - rsync
+
     - name: add local user
       user:
         name: "{{projector_user.name}}"
@@ -47,29 +64,12 @@
         owner: "{{projector_user.name}}"
         mode : 0644
 
-    - name: install packages
-      apt:
-        name: "{{item}}"
-        state: latest
-        update_cache: yes
-      with_items:
-        - xorg
-        - libcurl4-openssl-dev
-        - libx11-dev
-        - libxt-dev
-        - libimlib2-dev
-        - libxinerama-dev
-        - libjpeg-progs
-        - build-essential
-        - knockd
-        - rsync
-
-    - name: create feh unarchive directory
+    - name: FEH || create feh unarchive directory
       file:
         path: /tmp/{{feh_version}}
         state: directory
 
-    - name: download feh
+    - name: FEH || download feh
       unarchive:
         src: "{{feh_source}}"
         dest: /tmp/{{feh_version}}
@@ -78,33 +78,33 @@
           - "--strip-components=1"
         creates: /tmp/{{feh_version}}/Makefile
 
-    - name: install feh
+    - name: FEH || install feh
       shell: make && make install
       args:
         chdir: /tmp/{{feh_version}}
         creates: /usr/local/bin/feh
 
-    - name: create slideshow directory
+    - name: FEH || create slideshow directory
       file:
         path: "{{feh_config.path}}"
         state: directory
         mode: 0755
         owner: "{{projector_user.name}}"
 
-    - name: copy default slideshow image
+    - name: FEH || copy default slideshow image
       copy:
         src: files/projector/default.jpg
         dest: "{{feh_config.path}}"
         owner: "{{projector_user.name}}"
 
-    - name: deploy xinitrc
+    - name: FEH || deploy xinitrc
       template:
         src: templates/projector/xinitrc.j2
         dest: "{{projector_user.homedir}}/.xinitrc"
         owner: "{{projector_user.name}}"
         mode: 0644
 
-    - name: edit knockd default configuration
+    - name: KNOCKD || edit knockd default configuration
       lineinfile:
         path: /etc/default/knockd
         regexp: "{{item.re}}"
@@ -115,17 +115,17 @@
         - re: ^KNOCKD_OPTS="-i
           line: KNOCKD_OPTS="-i wlan0"
 
-    - name: deploy knockd configuration file
+    - name: KNOCKD || deploy knockd configuration file
       template:
         src: templates/projector/knockd.conf.j2
         dest: /etc/knockd.conf
 
-    - name: create knockd systemd unit
+    - name: KNOCKD || create knockd systemd unit
       copy:
         src: files/projector/knockd.service
         dest: /etc/systemd/system/knockd.service
 
-    - name: Enable knockd at boot
+    - name: KNOCKD || Enable knockd at boot
       systemd:
         name: knockd.service
         enabled: yes
@@ -224,7 +224,7 @@
 
     - name: deploy photobooth systemd unit
       template:
-        src: templates/photobooth/photobooth.service
+        src: templates/photobooth/photobooth.service.j2
         dest: /etc/systemd/system/photobooth.service
 
     - name: create usb mountpoint systemd unit directory
@@ -232,10 +232,12 @@
         path: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d
         state: directory
 
-    - name: set photobooth unit wanted by usb mountpoint
+    - name: set photobooth units wanted by usb mountpoint
       copy:
-        src: files/photobooth/10-run-photobooth.conf
-        dest: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d/10-run-photobooth.conf
+        src: files/photobooth/{{item}}
+        dest: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d/{{item}}
+      items:
+        - 10-run-photobooth.conf
 
     - name: enable photobooth service
       systemd:
@@ -244,9 +246,6 @@
         enabled: yes
 
 - hosts: all
-  vars:
-    wifi_ssid: ssid
-    wifi_passphrase: changeme
   tasks:
     - name: set hostname
       hostname:
@@ -264,7 +263,7 @@
       stat:
         path: /boot/cmdline.txt
       register: israspeberry
-    
+
     - name: disable dhcpd for wlan0 interface
       lineinfile:
         dest: /etc/dhcpcd.conf

@@ -2,10 +2,8 @@
 - name: configure wifi country
   command: raspi-config nonint do_wifi_country FR
 
-- name: configure wifi ssid
-  command: raspi-config nonint do_wifi_ssid_passphrase {{wifi_ssid}} {{wifi_passphrase}}
-
 - name: configure wlan0
-  copy:
-    src: files/projector/wlan0
+  template:
+    src: templates/projector/wlan0.j2
     dest: /etc/network/interfaces.d/wlan0
+    mode: 0600

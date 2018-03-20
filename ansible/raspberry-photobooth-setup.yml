@@ -26,3 +26,8 @@
     src: files/photobooth/wlan0
     dest: /etc/network/interfaces.d/wlan0
 
+- name: configure dhcpd for wlan0
+  copy:
+    src: files/photobooth/dhcpd.conf
+    dest: /etc/dhcp/dhcpd.conf
+

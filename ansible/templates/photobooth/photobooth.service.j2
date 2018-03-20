@@ -1,7 +1,7 @@
 [Unit]
 Description=Photobooth
-BindsTo=mnt-photobooth.mount
-After=mnt-photobooth.mount
+BindsTo={{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount
+After={{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount
 
 [Service]
 WorkingDirectory={{photobooth_user.homedir}}/app

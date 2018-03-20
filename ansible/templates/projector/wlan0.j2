@@ -5,4 +5,8 @@ iface wlan0 inet static
     netmask 255.255.255.0
     network 10.200.0.0
     broadcast 10.200.0.255
-    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+    wpa-ap-scan 1
+    wpa-scan-ssid 1
+    wpa-ssid {{wifi_ssid}}
+    wpa-psk {{wifi_passphrase}}
+    wpa-driver nl80211
