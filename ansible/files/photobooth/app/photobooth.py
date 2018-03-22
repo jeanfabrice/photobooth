@@ -28,10 +28,11 @@ def displayNumOn7Segments(num, segment):
         GPIO.output(segment[idx], GPIO.LOW if val=='0' else GPIO.HIGH)
 
 def countdown(start):
-    for c in xange(start, 0, -1):
+    for c in xrange(start, 0, -1):
         if config.withleds:
             displayNumOn7Segments(int(c/10), tensleds)
             displayNumOn7Segments(c%10, unitsleds)
+            switchLed(buttonled, 'on' if c%2 else 'off')
         else:
             print(c)
         time.sleep(1)
@@ -51,7 +52,6 @@ def initGPIO():
             GPIO.setup(channel, GPIO.OUT)
         for channel in [buttonswitch]:
             GPIO.setup(channel, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    blank7Segments()
 
 def knock(host, knock_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -103,11 +103,8 @@ def captureFrame(camera,now):
     currentFrame = 0
     
     while currentFrame < config.frames:
-        if config.withleds:
-            displayNumOn7Segments(config.frames-currentFrame, frameleds)
-        else:
-            print('Left frame: {0}'.format(config.frames-currentFrame))
         countdown(config.counter)
+        switchLed(buttonled, 'off')
         while True:
             try:
                 file_path = gp.check_result(gp.gp_camera_capture(camera, gp.GP_CAPTURE_IMAGE))
@@ -125,6 +122,10 @@ def captureFrame(camera,now):
         print("Photo taken")
         sequence.append(file_path)
         currentFrame += 1
+        if config.withleds:
+            displayNumOn7Segments(config.frames-currentFrame, frameleds)
+        else:
+            print('Left frame: {0}'.format(config.frames-currentFrame))
     
     capturedirectory = os.path.join(config.imagedir,now)
     
@@ -151,6 +152,8 @@ def main():
         os.makedirs(config.montagedir)
 
     initGPIO()
+
+    blank7Segments()
 
     logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.ERROR)
 
