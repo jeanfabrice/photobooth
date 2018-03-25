@@ -20,7 +20,3 @@ feh_config:
 
 wifi_ssid: ssid
 wifi_passphrase: changeme
-
-resilio_arch:
-  armv7l: armhf
-  armv6l: arm

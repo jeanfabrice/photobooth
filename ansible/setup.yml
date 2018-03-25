@@ -1,3 +1,114 @@
+- hosts: photobooth
+  tasks:
+    - name: add local user
+      user:
+        name: "{{photobooth_user.name}}"
+        home: "{{photobooth_user.homedir}}"
+        shell: /bin/bash
+      register: local_user
+
+    - name: deploy autologin unit
+      copy:
+        src: /lib/systemd/system/getty@.service
+        dest: /etc/systemd/system/autologin@.service
+        remote_src: yes
+    
+    - name: update autologin unit
+      lineinfile:
+        dest: /etc/systemd/system/autologin@.service
+        line: ExecStart=-/sbin/agetty -a "{{photobooth_user.name}}" %I $TERM
+        regexp: ^ExecStart=-/sbin/agetty
+    
+    - name: Disable tty1 unit
+      systemd:
+        daemon_reload: yes
+        enabled: no
+        name: getty@tty1.service
+    
+    - name: enable autologin unit
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: restarted
+        name: autologin@tty1.service
+    
+    - name: copy bash_profile
+      copy:
+        src: files/photobooth/bash_profile
+        dest: "{{photobooth_user.homedir}}/.bash_profile"
+        owner: "{{photobooth_user.name}}"
+        mode : 0644
+
+    - name: install packages
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - imagemagick
+        - python-dev
+        - build-essential
+        - python-pkgconfig
+        - python-setuptools
+        - virtualenv
+        - libgphoto2-6
+        - libgphoto2-dev
+        - rsync
+    
+    - name: install pip packages
+      pip:
+        name: "{{item}}"
+        virtualenv: "{{photobooth_virtualenv}}"
+      with_items:
+        - RPi.GPIO
+        - gphoto2
+
+    - name: create USB stick mountpoint
+      file:
+        path: "{{photobooth_usb_mountpoint}}"
+        state: directory
+        owner: "{{photobooth_user.name}}"
+        mode : 0755
+
+    - name: update fstab for USB stick
+      mount:
+        path: "{{photobooth_usb_mountpoint}}"
+        src: LABEL=PHOTOBOOTH
+        fstype: auto
+        passno: 2
+        opts: defaults,noatime,auto,nofail,uid={{local_user.uid}},gid={{local_user.group}}
+        state: present
+
+    - name: install photobooth app
+      copy:
+        src: files/photobooth/app
+        dest: "{{photobooth_user.homedir}}"
+        owner: "{{photobooth_user.name}}"
+
+    - name: deploy photobooth systemd unit
+      template:
+        src: templates/photobooth/photobooth.service.j2
+        dest: /etc/systemd/system/photobooth.service
+
+    - name: create usb mountpoint systemd unit directory
+      file:
+        path: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d
+        state: directory
+
+    - name: set photobooth units wanted by usb mountpoint
+      copy:
+        src: files/photobooth/{{item}}
+        dest: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d/{{item}}
+      items:
+        - 10-run-photobooth.conf
+
+    - name: enable photobooth service
+      systemd:
+        daemon_reload: yes
+        name: photobooth.service
+        enabled: yes
+
+
 - hosts: projector
   tasks:
     - name: install packages
@@ -131,119 +242,17 @@
         enabled: yes
         daemon_reload: yes
 
+    - name: create root .ssh directory
+      file:
+        path: /root/.ssh
+        state: directory
+        
     - name: deploy root ssh_config
       template:
         src: templates/projector/ssh_config.j2
         dest: /root/.ssh/config
         mode: 0600
 
-- hosts: photobooth
-  tasks:
-    - name: add local user
-      user:
-        name: "{{photobooth_user.name}}"
-        home: "{{photobooth_user.homedir}}"
-        shell: /bin/bash
-      register: local_user
-
-    - name: deploy autologin unit
-      copy:
-        src: /lib/systemd/system/getty@.service
-        dest: /etc/systemd/system/autologin@.service
-        remote_src: yes
-    
-    - name: update autologin unit
-      lineinfile:
-        dest: /etc/systemd/system/autologin@.service
-        line: ExecStart=-/sbin/agetty -a "{{photobooth_user.name}}" %I $TERM
-        regexp: ^ExecStart=-/sbin/agetty
-    
-    - name: Disable tty1 unit
-      systemd:
-        daemon_reload: yes
-        enabled: no
-        name: getty@tty1.service
-    
-    - name: enable autologin unit
-      systemd:
-        daemon_reload: yes
-        enabled: yes
-        state: restarted
-        name: autologin@tty1.service
-    
-    - name: copy bash_profile
-      copy:
-        src: files/photobooth/bash_profile
-        dest: "{{photobooth_user.homedir}}/.bash_profile"
-        owner: "{{photobooth_user.name}}"
-        mode : 0644
-
-    - name: install packages
-      apt:
-        name: "{{item}}"
-        state: latest
-        update_cache: yes
-      with_items:
-        - imagemagick
-        - python-dev
-        - build-essential
-        - python-pkgconfig
-        - python-setuptools
-        - virtualenv
-        - rsync
-    
-    - name: install pip packages
-      pip:
-        name: "{{item}}"
-        virtualenv: "{{photobooth_virtualenv}}"
-      with_items:
-        - RPi.GPIO
-        - gphoto2
-
-    - name: create USB stick mountpoint
-      file:
-        path: "{{photobooth_usb_mountpoint}}"
-        state: directory
-        owner: "{{photobooth_user.name}}"
-        mode : 0755
-
-    - name: update fstab for USB stick
-      mount:
-        path: "{{photobooth_usb_mountpoint}}"
-        src: LABEL=PHOTOBOOTH
-        fstype: auto
-        passno: 2
-        opts: defaults,noatime,auto,nofail,uid={{local_user.uid}},gid={{local_user.group}}
-        state: present
-
-    - name: install photobooth app
-      copy:
-        src: files/photobooth/app
-        dest: "{{photobooth_user.homedir}}"
-        owner: "{{photobooth_user.name}}"
-
-    - name: deploy photobooth systemd unit
-      template:
-        src: templates/photobooth/photobooth.service.j2
-        dest: /etc/systemd/system/photobooth.service
-
-    - name: create usb mountpoint systemd unit directory
-      file:
-        path: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d
-        state: directory
-
-    - name: set photobooth units wanted by usb mountpoint
-      copy:
-        src: files/photobooth/{{item}}
-        dest: /etc/systemd/system/{{photobooth_usb_mountpoint|regex_replace('^/|/$','')|regex_replace('/','-')}}.mount.d/{{item}}
-      items:
-        - 10-run-photobooth.conf
-
-    - name: enable photobooth service
-      systemd:
-        daemon_reload: yes
-        name: photobooth.service
-        enabled: yes
 
 - hosts: all
   tasks:
