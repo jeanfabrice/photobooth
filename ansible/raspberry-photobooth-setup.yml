@@ -6,6 +6,7 @@
     update_cache: yes
   with_items:
     - hostapd
+    - isc-dhcp-server
 
 - name: configure hostapd default
   lineinfile:

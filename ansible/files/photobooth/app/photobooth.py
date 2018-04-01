@@ -80,7 +80,10 @@ def blank7Segments():
         displayNumOn7Segments(10, frameleds)
 
 def configurecamera(camera):
-    setup = {"output": "PC", "viewfinder": 1}
+    setup = {
+        "output": "TFT",
+        "viewfinder": 1
+    }
     
     if config.frames > 1:
         setup['capturetarget'] = "card"
@@ -204,7 +207,7 @@ def main():
     #Capture frame endlessly
     while True:
         if config.withleds:
-            displayNumOn7Segments(int(config.counter/10,tensleds))
+            displayNumOn7Segments(int(config.counter/10),tensleds)
             displayNumOn7Segments(config.counter%10,unitsleds)
             displayNumOn7Segments(config.frames,frameleds)
 

@@ -51,7 +51,7 @@
         - python-pkgconfig
         - python-setuptools
         - virtualenv
-        - libgphoto2-6
+        - gphoto2
         - libgphoto2-dev
         - rsync
     
