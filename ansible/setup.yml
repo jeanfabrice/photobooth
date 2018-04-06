@@ -54,6 +54,7 @@
         - gphoto2
         - libgphoto2-dev
         - rsync
+        - printer-driver-gutenprint
     
     - name: install pip packages
       pip:
