@@ -22,6 +22,14 @@
     group: root
     mode: 0600
 
+- name: configure timezone
+  command: raspi-config nonint do_change_timezone Europe/Paris
+
+- name: update /boot/config.txt for ds3231 RTC module support
+  lineinfile:
+    dest: /boot/config.txt
+    line: dtoverlay=i2c-rtc,ds3231
+
 - name: configure wlan0
   copy:
     src: files/photobooth/wlan0
