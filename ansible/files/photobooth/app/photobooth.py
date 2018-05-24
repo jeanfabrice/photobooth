@@ -81,8 +81,8 @@ def blank7Segments():
 
 def configurecamera(camera):
     setup = {
-        "output": "TFT",
-        "viewfinder": 1
+        "viewfinder": 1,
+        "output": "TFT"
     }
     
     if config.frames > 1:
@@ -94,12 +94,14 @@ def configurecamera(camera):
             widget = gp.check_result(gp.gp_camera_get_single_config(camera,c))
             gp.check_result(gp.gp_widget_set_value(widget,v))
             gp.check_result(gp.gp_camera_set_single_config(camera,c,widget))
+            time.sleep(2)
         except gp.GPhoto2Error:
             print ('I/O error. Please restart camera')
             gp.check_result(gp.gp_camera_exit(camera))
             main()
         except:
             raise
+    print('Done')
 
 def captureFrame(camera,now):
     sequence     = []
