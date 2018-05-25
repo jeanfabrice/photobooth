@@ -21,6 +21,7 @@ unitsleds     = [11, 10, 9, 5]
 frameleds     = [19, 6, 13,26]
 buttonled     = 14
 buttonswitch  = 18
+printswitch   = 21
 
 def displayNumOn7Segments(num, segment):
     binnum = "{0:04b}".format(num)
@@ -50,7 +51,7 @@ def initGPIO():
         GPIO.setmode(GPIO.BCM)
         for channel in tensleds+unitsleds+frameleds+[buttonled]:
             GPIO.setup(channel, GPIO.OUT)
-        for channel in [buttonswitch]:
+        for channel in [buttonswitch, printswitch]:
             GPIO.setup(channel, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 def knock(host, knock_port):
@@ -151,6 +152,12 @@ def captureFrame(camera,now):
     print("Photo saved")
     return capturedirectory
 
+def printFile(fileName):
+    conn = cups.Connection()
+    printers = conn.getPrinters()
+    printer = printers.keys()[0]
+    conn.printFile (printer, fileName, "", {'raw':'True', 'StpImageType/Image':'Photo', 'StpBorderless/Borderless':'True' })
+
 
 def main():
     if not os.path.exists(config.montagedir):
@@ -224,7 +231,13 @@ def main():
         
         try:
             #Call rendering method from config module with source file list and destination file path
-            config.render(os.path.join(capturedirectory,'*.jpg'), os.path.join(config.montagedir,'%s.jpg'%now))
+            source = os.path.join(capturedirectory,'*.jpg')
+            destination = os.path.join(config.montagedir,'%s.jpg'%now)
+            config.render(source, destination)
+            if not GPIO.input(printswitch):
+                print('Print mode detected. Printing...')
+                printFile()
+                print('Done')
         except:
             raise
         
