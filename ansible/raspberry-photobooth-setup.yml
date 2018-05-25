@@ -25,14 +25,18 @@
 - name: configure timezone
   command: raspi-config nonint do_change_timezone Europe/Paris
 
+<<<<<<< HEAD
 - name: configure i2c
   command: raspi-config nonint do_i2c 0
 
+=======
+>>>>>>> Initial commit
 - name: update /boot/config.txt for ds3231 RTC module support
   lineinfile:
     dest: /boot/config.txt
     line: dtoverlay=i2c-rtc,ds3231
 
+<<<<<<< HEAD
 - name: update /lib/udev/hwclock-set
   blockinfile:
     path: /lib/udev/hwclock-set
@@ -42,6 +46,8 @@
       fi
     state: absent
 
+=======
+>>>>>>> Initial commit
 - name: configure wlan0
   copy:
     src: files/photobooth/wlan0
