@@ -1,7 +1,6 @@
 import subprocess
 import os
 import random
-import cups
 
 
 frames       = 1
