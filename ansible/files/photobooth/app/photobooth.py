@@ -12,6 +12,7 @@ import uuid
 import time
 import config
 import signal
+import cups
 from functools import partial
 import socket
 import RPi.GPIO as GPIO
