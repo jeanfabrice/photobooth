@@ -262,7 +262,7 @@
         mode: 0600
 
 
-- hosts: all
+- hosts: projector,photobooth
   tasks:
     - name: set hostname
       hostname:
