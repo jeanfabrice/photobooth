@@ -237,7 +237,7 @@ def main():
             config.render(source, destination)
             if not GPIO.input(printswitch):
                 print('Print mode detected. Printing...')
-                printFile()
+                printFile(destination)
                 print('Done')
         except:
             raise
