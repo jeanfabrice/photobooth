@@ -111,6 +111,11 @@
         name: photobooth.service
         enabled: yes
 
+    - name: setup cronjob to clear print queue at boot
+      cron:
+        name: "clear print queue"
+        special_time: reboot
+        job: "/usr/bin/cancel -a -x"
 
 - hosts: projector
   tasks:
