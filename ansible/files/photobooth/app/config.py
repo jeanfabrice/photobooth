@@ -4,7 +4,7 @@ import random
 
 
 frames       = 1
-counter      = 10
+counter      = 5
 imagedir     = "/mnt/photobooth/capture.d"
 montagedir   = "/mnt/photobooth"
 withleds     = True
