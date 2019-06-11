@@ -237,11 +237,7 @@ def main():
             config.render(source, destination)
             if not GPIO.input(printswitch):
                 print('Print mode detected. Printing...')
-<<<<<<< HEAD
                 printFile(destination)
-=======
-                printFile()
->>>>>>> Initial commit
                 print('Done')
         except:
             raise
